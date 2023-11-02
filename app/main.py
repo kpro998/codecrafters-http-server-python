@@ -9,8 +9,12 @@ def main():
     # Uncomment this to pass the first stage
     #
     server_socket = socket.create_server(("localhost", 4221))
-    server_socket.accept()  # wait for client
-    server_socket.send(bytes("HTTP/1.1 200 OK\r\n\r\n"))
+    conn, addr = server_socket.accept()  # wait for client
+
+    conn.sendall("HTTP/1.1 200 OK\r\n\r\n".encode())
+
+    conn.close()
+    server_socket.close
 
 
 if __name__ == "__main__":
