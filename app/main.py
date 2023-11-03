@@ -19,15 +19,24 @@ class HTTPRequest:
     method: str
     path: str
     version: str
+    headers: dict[str, str]
 
     @staticmethod
     def from_raw_http_request(raw: bytes) -> "HTTPRequest":
         http_request_str = raw.decode()
         http_lines = http_request_str.split(CRLF)
 
-        start_line = http_lines[0]
+        start_line = http_lines.pop(0)
         method, path, version = start_line.split(" ", maxsplit=3)
-        return HTTPRequest(method, path, version)
+
+        headers = {}
+        for line in http_lines:
+            if line == "":
+                continue
+            key, value = line.split(": ")
+            headers[key] = value
+
+        return HTTPRequest(method, path, version, headers=headers)
 
 
 @dataclass
@@ -64,7 +73,11 @@ def main():
             response: HTTPResponse = None
             match request.path:
                 case s if s.startswith("/echo"):
-                    body = request.path.lstrip("/echo/")
+                    body = request.path.replace("/echo/", "", 1)
+                    headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
+                    response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
+                case "/user-agent":
+                    body = request.headers.get("User-Agent", "")
                     headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
                     response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
                 case "/":
@@ -73,7 +86,6 @@ def main():
                     response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
 
             print(response)
-            print(response.build_response().encode())
             conn.sendall(response.build_response().encode())
 
 
