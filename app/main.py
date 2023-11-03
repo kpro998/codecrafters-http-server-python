@@ -1,6 +1,17 @@
-# Uncomment this to pass the first stage
 import socket
 from dataclasses import dataclass
+from enum import IntEnum
+
+
+IP = "localhost"
+PORT = 4221
+BUFFER_SIZE = 1024
+CRLF = "\r\n"
+
+
+class HTTPStatusCode(IntEnum):
+    OK = 200
+    NOT_FOUND = 404
 
 
 @dataclass
@@ -9,34 +20,61 @@ class HTTPRequest:
     path: str
     version: str
 
+    @staticmethod
+    def from_raw_http_request(raw: bytes) -> "HTTPRequest":
+        http_request_str = raw.decode()
+        http_lines = http_request_str.split(CRLF)
 
-def parse_raw_http_request(raw: bytes):
-    http_request_str = raw.decode()
-    http_lines = http_request_str.split("\r\n")
+        start_line = http_lines[0]
+        method, path, version = start_line.split(" ", maxsplit=3)
+        return HTTPRequest(method, path, version)
 
-    start_line = http_lines[0]
-    method, path, version = start_line.split(" ", maxsplit=3)
-    return HTTPRequest(method, path, version)
+
+@dataclass
+class HTTPResponse:
+    status_code: HTTPStatusCode
+    headers: dict[str, str] = None
+    body: str = None
+    version: str = "HTTP/1.1"
+
+    def build_response(self) -> str:
+        response = ""
+        response += f"{self.version} {str(self.status_code)}{CRLF}"
+
+        if self.headers:
+            for key, value in self.headers.items():
+                response += f"{key}: {value}{CRLF}"
+            response += CRLF
+
+        if self.body:
+            response += self.body
+
+        response += CRLF
+        return response
 
 
 def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
+    with socket.create_server((IP, PORT)) as server:
+        conn, _ = server.accept()
+        with conn:
+            raw_http_request = conn.recv(BUFFER_SIZE)
+            request = HTTPRequest.from_raw_http_request(raw_http_request)
+            print(request)
 
-    # Uncomment this to pass the first stage
-    #
-    server_socket = socket.create_server(("localhost", 4221))
-    conn, addr = server_socket.accept()  # wait for client
-    raw_http_request = conn.recv(1024)
-    request = parse_raw_http_request(raw_http_request)
+            response: HTTPResponse = None
+            match request.path:
+                case s if s.startswith("/echo"):
+                    body = request.path.lstrip("/echo/")
+                    headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
+                    response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
+                case "/":
+                    response = HTTPResponse(status_code=HTTPStatusCode.OK)
+                case _:
+                    response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
 
-    if request.path == "/":
-        conn.sendall("HTTP/1.1 200 OK\r\n\r\n".encode())
-    else:
-        conn.sendall("HTTP/1.1 404 Not Found\r\n\r\n".encode())
-
-    conn.close()
-    server_socket.close
+            print(response)
+            print(response.build_response().encode())
+            conn.sendall(response.build_response().encode())
 
 
 if __name__ == "__main__":
