@@ -1,3 +1,4 @@
+import asyncio
 import socket
 from dataclasses import dataclass
 from enum import IntEnum
@@ -62,32 +63,48 @@ class HTTPResponse:
         return response
 
 
-def main():
-    with socket.create_server((IP, PORT)) as server:
-        conn, _ = server.accept()
-        with conn:
-            raw_http_request = conn.recv(BUFFER_SIZE)
-            request = HTTPRequest.from_raw_http_request(raw_http_request)
-            print(request)
+def get_response_from_request(request: HTTPRequest) -> HTTPResponse:
+    response: HTTPResponse = None
+    match request.path:
+        case s if s.startswith("/echo"):
+            body = request.path.replace("/echo/", "", 1)
+            headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
+            response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
+        case "/user-agent":
+            body = request.headers.get("User-Agent", "")
+            headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
+            response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
+        case "/":
+            response = HTTPResponse(status_code=HTTPStatusCode.OK)
+        case _:
+            response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
+    return response
 
-            response: HTTPResponse = None
-            match request.path:
-                case s if s.startswith("/echo"):
-                    body = request.path.replace("/echo/", "", 1)
-                    headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
-                    response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
-                case "/user-agent":
-                    body = request.headers.get("User-Agent", "")
-                    headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
-                    response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
-                case "/":
-                    response = HTTPResponse(status_code=HTTPStatusCode.OK)
-                case _:
-                    response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
 
-            print(response)
-            conn.sendall(response.build_response().encode())
+async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    addr = writer.get_extra_info("peername")
+    print(f"Got connection from {addr}")
+
+    data = await reader.read(BUFFER_SIZE)
+    request = HTTPRequest.from_raw_http_request(data)
+    print(request)
+
+    response = get_response_from_request(request)
+    print(response)
+
+    writer.write(response.build_response().encode())
+    await writer.drain()
+
+    writer.close()
+    await writer.wait_closed()
+    print(f"Connection with {addr} closed")
+
+
+async def main():
+    server = await asyncio.start_server(client_connected, IP, PORT)
+    async with server:
+        await server.serve_forever()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
