@@ -12,12 +12,14 @@ CRLF = "\r\n"
 
 
 parser = ArgumentParser()
-parser.add_argument("-d", "--directory", dest="directory")
+parser.add_argument("-d", "--directory", dest="directory", required=False)
 
 
 class HTTPStatusCode(IntEnum):
     OK = 200
+    CREATED = 201
     NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
 
 
 @dataclass
@@ -26,11 +28,12 @@ class HTTPRequest:
     path: str
     version: str
     headers: dict[str, str]
+    body: bytes
 
     @staticmethod
     def from_raw_http_request(raw: bytes) -> "HTTPRequest":
-        http_request_str = raw.decode()
-        http_lines = http_request_str.split(CRLF)
+        http_raw, data = raw.split(b"\r\n\r\n")
+        http_lines = http_raw.decode().split(CRLF)
 
         start_line = http_lines.pop(0)
         method, path, version = start_line.split(" ", maxsplit=3)
@@ -42,7 +45,7 @@ class HTTPRequest:
             key, value = line.split(": ")
             headers[key] = value
 
-        return HTTPRequest(method, path, version, headers=headers)
+        return HTTPRequest(method, path, version, headers, data)
 
 
 @dataclass
@@ -75,26 +78,37 @@ def get_file_from_directory(directory: Path, filename: str) -> str | None:
     return None
 
 
+def create_file_in_directory(directory: Path, filename: str, data: bytes):
+    file = directory.joinpath(filename)
+    file.write_bytes(data)
+
+
 def get_response_from_request(request: HTTPRequest) -> HTTPResponse:
     response: HTTPResponse = None
-    match request.path:
-        case s if s.startswith("/echo"):
+    if args.directory:
+        file_directory = Path(args.directory)
+    match request:
+        case r if r.method == "POST" and r.path.startswith("/files"):
+            filename = request.path.replace("/files/", "", 1)
+            create_file_in_directory(file_directory, filename, request.body)
+            response = HTTPResponse(status_code=HTTPStatusCode.CREATED)
+        case r if r.method == "GET" and r.path.startswith("/echo"):
             body = request.path.replace("/echo/", "", 1)
             headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
             response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
-        case s if s.startswith("/files"):
+        case r if r.method == "GET" and r.path.startswith("/files"):
             filename = request.path.replace("/files/", "", 1)
-            file = get_file_from_directory(Path(args.directory), filename)
+            file = get_file_from_directory(file_directory, filename)
             if file != None:
                 headers = {"Content-Length": str(len(file)), "Content-Type": "application/octet-stream"}
                 response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=file)
             else:
                 response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
-        case "/user-agent":
+        case r if r.method == "GET" and r.path == "/user-agent":
             body = request.headers.get("User-Agent", "")
             headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
             response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
-        case "/":
+        case r if r.method == "GET" and r.path == "/":
             response = HTTPResponse(status_code=HTTPStatusCode.OK)
         case _:
             response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
