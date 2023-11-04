@@ -1,13 +1,18 @@
 import asyncio
-import socket
 from dataclasses import dataclass
 from enum import IntEnum
+from argparse import ArgumentParser
+from pathlib import Path
 
 
 IP = "localhost"
 PORT = 4221
 BUFFER_SIZE = 1024
 CRLF = "\r\n"
+
+
+parser = ArgumentParser()
+parser.add_argument("-d", "--directory", dest="directory")
 
 
 class HTTPStatusCode(IntEnum):
@@ -63,6 +68,13 @@ class HTTPResponse:
         return response
 
 
+def get_file_from_directory(directory: Path, filename: str) -> str | None:
+    file = directory.joinpath(filename)
+    if file.is_file():
+        return file.read_text()
+    return None
+
+
 def get_response_from_request(request: HTTPRequest) -> HTTPResponse:
     response: HTTPResponse = None
     match request.path:
@@ -70,6 +82,14 @@ def get_response_from_request(request: HTTPRequest) -> HTTPResponse:
             body = request.path.replace("/echo/", "", 1)
             headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
             response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=body)
+        case s if s.startswith("/files"):
+            filename = request.path.replace("/files/", "", 1)
+            file = get_file_from_directory(Path(args.directory), filename)
+            if file != None:
+                headers = {"Content-Length": str(len(file)), "Content-Type": "application/octet-stream"}
+                response = HTTPResponse(status_code=HTTPStatusCode.OK, headers=headers, body=file)
+            else:
+                response = HTTPResponse(status_code=HTTPStatusCode.NOT_FOUND)
         case "/user-agent":
             body = request.headers.get("User-Agent", "")
             headers = {"Content-Length": str(len(body)), "Content-Type": "text/plain"}
@@ -102,9 +122,11 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
 
 async def main():
     server = await asyncio.start_server(client_connected, IP, PORT)
+    print(f"Server listening on {IP}:{PORT}")
     async with server:
         await server.serve_forever()
 
 
 if __name__ == "__main__":
+    args = parser.parse_args()
     asyncio.run(main())
