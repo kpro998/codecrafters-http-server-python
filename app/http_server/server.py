@@ -30,7 +30,7 @@ class Server:
             if route.method == method and route.path_matches_regex(path):
                 return route
 
-    async def serve(self, static_dir: Path | str = None) -> None:
+    async def serve(self) -> None:
         self.server = await start_server(self._client_connected_callback, self.host, self.port)
         logging.info(f"Server listening on {self.host}:{self.port}")
         await self.server.serve_forever()
