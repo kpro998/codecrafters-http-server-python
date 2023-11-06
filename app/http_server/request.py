@@ -43,8 +43,11 @@ class HTTPRequest:
         body = None
         match method:
             case HTTPMethod.DELETE | HTTPMethod.PATCH | HTTPMethod.POST | HTTPMethod.PUT:
-                length = int(headers.get("Content-Length", 0))
-                if length:
-                    body = await reader.read(length)
+                try:
+                    length = int(headers.get("Content-Length", 0))
+                    if length:
+                        body = await reader.read(length)
+                except ValueError:
+                    raise InvalidRequestException("Invalid Content-Length header")
 
         return HTTPRequest(method=http_method, path=request_target, version=http_version, headers=headers, body=body)
