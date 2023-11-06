@@ -1,4 +1,4 @@
-from app.http_server.server import Server
+from app.http_server.server import HTTPServer
 from app.http_server.request import HTTPRequest
 from app.http_server.response import HTTPResponse, HTTPStatusCode
 import logging

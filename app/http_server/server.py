@@ -10,7 +10,7 @@ from pathlib import Path
 import logging
 
 
-class Server:
+class HTTPServer:
     def __init__(self, host: str, port: str) -> None:
         self.host = host
         self.port = port

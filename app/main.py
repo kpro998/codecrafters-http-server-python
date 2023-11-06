@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
-from app.http_server import Server, HTTPResponse, HTTPRequest, HTTPStatusCode
+from app.http_server import HTTPServer, HTTPResponse, HTTPRequest, HTTPStatusCode
 import asyncio
 
 parser = ArgumentParser()
 parser.add_argument("-d", "--directory", dest="directory", required=False)
 
-server = Server("127.0.0.1", 4221)
+server = HTTPServer("127.0.0.1", 4221)
 
 
 @server.get("/")
