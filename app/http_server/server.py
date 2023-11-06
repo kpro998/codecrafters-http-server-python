@@ -47,7 +47,9 @@ class HTTPServer:
 
             route = self.get_route(request.method, request.path)
             if not route:
-                raise HTTPError(HTTPStatusCode.NOT_FOUND, f"Could not find path '{request.path}'")
+                raise HTTPError(
+                    HTTPStatusCode.NOT_FOUND, f"{addr[0]}:{addr[1]} {request.path} {HTTPStatusCode.NOT_FOUND}"
+                )
 
             logging.debug(f"Path '{request.path}' matches route regex: {route.path_regex}")
 
