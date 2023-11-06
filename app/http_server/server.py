@@ -5,10 +5,9 @@ from app.http_server.response import HTTPResponse, HTTPStatusCode
 from app.http_server.request import HTTPRequest
 from app.http_server.exceptions import InvalidRequestException, HTTPError
 from app.http_server.route import Route
+from app.http_server.types import HTTPCallback
 from pathlib import Path
 import logging
-
-HTTPCallback = Callable[[HTTPRequest], HTTPResponse]
 
 
 class Server:
@@ -23,7 +22,7 @@ class Server:
         if static_dir:
             self.static_dir = Path(static_dir)
 
-    def add_route(self, method: HTTPMethod, path: str, callback: Callable) -> None:
+    def add_route(self, method: HTTPMethod, path: str, callback: HTTPCallback) -> None:
         self.routes.append(Route(method, path, callback))
 
     def get_route(self, method: HTTPMethod, path: str) -> Route | None:
@@ -86,13 +85,13 @@ class Server:
             await self._close_writer(writer)
 
     def get(self, route: str) -> Callable:
-        def wrapper(func: Callable) -> None:
+        def wrapper(func: HTTPCallback) -> None:
             self.add_route(HTTPMethod.GET, route, func)
 
         return wrapper
 
     def post(self, route: str) -> Callable:
-        def wrapper(func: Callable) -> None:
+        def wrapper(func: HTTPCallback) -> None:
             self.add_route(HTTPMethod.POST, route, func)
 
         return wrapper

@@ -1,10 +1,10 @@
-from typing import Callable
+from app.http_server.types import HTTPCallback
 from app.http_server.methods import HTTPMethod
 import re
 
 
 class Route:
-    def __init__(self, method: HTTPMethod, path: str, callback: Callable) -> None:
+    def __init__(self, method: HTTPMethod, path: str, callback: HTTPCallback) -> None:
         assert path.startswith("/"), "Path must start with /"
         self.method = method
         self.path = path
