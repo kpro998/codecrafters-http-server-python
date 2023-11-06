@@ -40,11 +40,11 @@ class Server:
         logging.debug(f"Got connection from {addr}")
 
         try:
-            request = await HTTPRequest._from_reader(reader)
-        except InvalidRequestException as e:
-            raise HTTPError(HTTPStatusCode.BAD_REQUEST, str(e))
+            try:
+                request = await HTTPRequest._from_reader(reader)
+            except InvalidRequestException as e:
+                raise HTTPError(HTTPStatusCode.BAD_REQUEST, str(e))
 
-        try:
             route = self.get_route(request.method, request.path)
             if not route:
                 raise HTTPError(HTTPStatusCode.NOT_FOUND, f"Could not find path '{request.path}'")
@@ -67,7 +67,7 @@ class Server:
 
             logging.info(f"{addr[0]}:{addr[1]} {request.path} {response.status_code}")
             await self._respond(writer, response)
-        except HTTPError:
+        except HTTPError as e:
             logging.warn(str(e))
             return await self._respond(writer, HTTPResponse(e.status_code))
         except Exception as e:
