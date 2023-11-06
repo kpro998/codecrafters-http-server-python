@@ -15,6 +15,7 @@ class HTTPRequest:
     headers: dict[str, str]
     body: bytes = None
 
+    @staticmethod
     async def _from_reader(reader: StreamReader) -> "HTTPRequest":
         request_line = await reader.readline()
         try:
