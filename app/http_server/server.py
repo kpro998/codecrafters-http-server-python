@@ -41,9 +41,8 @@ class Server:
 
         try:
             request = await HTTPRequest._from_reader(reader)
-        except InvalidRequestException:
-            logging.debug(f"Connection {addr} sent invalid request")
-            return await self._close_writer(writer)
+        except InvalidRequestException as e:
+            raise HTTPError(HTTPStatusCode.BAD_REQUEST, str(e))
 
         try:
             route = self.get_route(request.method, request.path)
