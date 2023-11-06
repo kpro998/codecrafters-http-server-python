@@ -46,29 +46,33 @@ class Server:
 
         try:
             route = self.get_route(request.method, request.path)
-            if route:
-                logging.debug(f"Path '{request.path}' matches route regex: {route.path_regex}")
-                variables = route.parse_path(request.path)
-                ret = await route.callback(request, **variables)
-                match ret:
-                    case HTTPResponse():
-                        await self._respond(writer, ret)
-                    case str():
-                        response = HTTPResponse(
-                            HTTPStatusCode.OK, {"Content-Length": len(ret), "Content-Type": "text/plain"}, ret
-                        )
-                        await self._respond(writer, response)
-                    case _:
-                        raise HTTPError(HTTPStatusCode.INTERNAL_SERVER_ERROR, "Internal server error")
-            logging.warn(f"404 Not found: {request.path}")
-            raise HTTPError(HTTPStatusCode.NOT_FOUND, f"404 Could not find path '{request.path}'")
-        except Exception as e:
-            match e:
-                case HTTPError():
-                    return await self._respond(writer, HTTPResponse(e.status_code))
+            if not route:
+                raise HTTPError(HTTPStatusCode.NOT_FOUND, f"Could not find path '{request.path}'")
+
+            logging.debug(f"Path '{request.path}' matches route regex: {route.path_regex}")
+
+            response = HTTPResponse(HTTPStatusCode.INTERNAL_SERVER_ERROR)
+
+            variables = route.parse_path(request.path)
+            ret = await route.callback(request, **variables)
+            match ret:
+                case HTTPResponse():
+                    response = ret
+                case str():
+                    response = HTTPResponse(
+                        HTTPStatusCode.OK, {"Content-Length": len(ret), "Content-Type": "text/plain"}, ret
+                    )
                 case _:
-                    logging.exception(e)
-                    return await self._respond(writer, HTTPResponse(HTTPStatusCode.INTERNAL_SERVER_ERROR))
+                    raise NotImplementedError(f"We do not support type '{type(ret)}' yet")
+
+            logging.info(f"{addr[0]}:{addr[1]} {request.path} {response.status_code}")
+            await self._respond(writer, response)
+        except HTTPError:
+            logging.warn(str(e))
+            return await self._respond(writer, HTTPResponse(e.status_code))
+        except Exception as e:
+            logging.exception(e)
+            return await self._respond(writer, HTTPResponse(HTTPStatusCode.INTERNAL_SERVER_ERROR))
 
     async def _close_writer(self, writer: StreamWriter) -> None:
         addr = writer.get_extra_info("peername")
