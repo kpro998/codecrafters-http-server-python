@@ -15,8 +15,7 @@ class Route:
 
     def extract_variables(self) -> list:
         VARIABLES_REGEX = r"{([a-zA-Z]+)}"
-        match = re.findall(VARIABLES_REGEX, self.path)
-        return {variable: None for variable in match}
+        return re.findall(VARIABLES_REGEX, self.path)
 
     def compile_regex(self) -> re.Pattern:
         regex = "^" + re.escape(self.path) + "$"
