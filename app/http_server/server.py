@@ -1,9 +1,9 @@
 import logging
 from asyncio import Server, StreamReader, StreamWriter, start_server
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-from app.http_server.exceptions import HTTPError, InvalidRequestException
+from app.http_server.exceptions import HTTPError, InvalidRequestError
 from app.http_server.methods import HTTPMethod
 from app.http_server.request import HTTPRequest
 from app.http_server.response import HTTPResponse, HTTPStatusCode
@@ -19,7 +19,7 @@ class HTTPServer:
         self.routes: list[Route] = []
         self.static_dir: Path | None = None
 
-    def set_static_dir(self, static_dir: Path | str | None):
+    def set_static_dir(self, static_dir: Path | str | None) -> None:
         if static_dir:
             self.static_dir = Path(static_dir)
 
@@ -30,29 +30,32 @@ class HTTPServer:
         for route in self.routes:
             if route.method == method and route.path_matches_regex(path):
                 return route
+        return None
 
     async def serve(self) -> None:
         self.server = await start_server(self._client_connected_callback, self.host, self.port)
-        logging.info(f"Server listening on {self.host}:{self.port}")
+        logging.info("Server listening on %s:%s", self.host, self.port)
         await self.server.serve_forever()
 
     async def _client_connected_callback(self, reader: StreamReader, writer: StreamWriter) -> None:
         addr = writer.get_extra_info("peername")
-        logging.debug(f"Got connection from {addr}")
+        logging.debug("Got connection from %s:%s", addr[0], addr[1])
 
         try:
             try:
-                request = await HTTPRequest._from_reader(reader)
-            except InvalidRequestException as e:
-                raise HTTPError(HTTPStatusCode.BAD_REQUEST, f"{addr[0]}:{addr[1]} {str(e)}")
+                request = await HTTPRequest._from_reader(reader)  # noqa: SLF001
+            except InvalidRequestError as e:
+                raise HTTPError(
+                    HTTPStatusCode.BAD_REQUEST,
+                    f"{addr[0]}:{addr[1]} {e!s}",
+                ) from e
 
             route = self.get_route(request.method, request.path)
             if not route:
-                raise HTTPError(
-                    HTTPStatusCode.NOT_FOUND, f"{addr[0]}:{addr[1]} {request.path} {HTTPStatusCode.NOT_FOUND}"
-                )
+                msg = f"{addr[0]}:{addr[1]} {request.path} {HTTPStatusCode.NOT_FOUND}"
+                raise HTTPError(HTTPStatusCode.NOT_FOUND, msg)
 
-            logging.debug(f"Path '{request.path}' matches route regex: {route.path_regex}")
+            logging.debug("Path '%s' matches route regex: %s", request.path, route.path_regex)
 
             response = HTTPResponse(HTTPStatusCode.INTERNAL_SERVER_ERROR)
 
@@ -62,24 +65,25 @@ class HTTPServer:
                 case HTTPResponse():
                     response = ret
                 case str():
-                    response = HTTPResponse(HTTPStatusCode.OK, {"Content-Length": len(ret), "Content-Type": "text/plain"}, ret)
+                    headers = {"Content-Length": len(ret), "Content-Type": "text/plain"}
+                    response = HTTPResponse(HTTPStatusCode.OK, headers, ret)
                 case _:
                     raise NotImplementedError(f"We do not support type '{type(ret)}' yet")
 
-            logging.info(f"{addr[0]}:{addr[1]} {request.path} {response.status_code}")
+            logging.info("%s:%s %s %s", addr[0], addr[1], request.path, response.status_code)
             await self._respond(writer, response)
         except HTTPError as e:
-            logging.warn(str(e))
+            logging.warning(str(e))
             return await self._respond(writer, HTTPResponse(e.status_code))
-        except Exception as e:
-            logging.exception(e)
+        except Exception:
+            logging.exception("Got unknown exception")
             return await self._respond(writer, HTTPResponse(HTTPStatusCode.INTERNAL_SERVER_ERROR))
 
     async def _close_writer(self, writer: StreamWriter) -> None:
         addr = writer.get_extra_info("peername")
         writer.close()
         await writer.wait_closed()
-        logging.debug(f"Connection with {addr} closed")
+        logging.debug("Connection with %s:%s closed", addr[0], addr[1])
 
     async def _respond(self, writer: StreamWriter, response: HTTPResponse, close_writer: bool = True) -> None:
         writer.write(response.build_response().encode())

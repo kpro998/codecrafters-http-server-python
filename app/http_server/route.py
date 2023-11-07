@@ -3,10 +3,14 @@ import re
 from app.http_server.methods import HTTPMethod
 from app.http_server.types import HTTPCallback
 
+VARIABLES_REGEX = r"{([a-zA-Z]+)}"
+
 
 class Route:
     def __init__(self, method: HTTPMethod, path: str, callback: HTTPCallback) -> None:
-        assert path.startswith("/"), "Path must start with /"
+        if not path.startswith("/"):
+            raise ValueError("Path must start with /")
+
         self.method = method
         self.path = path
         self.callback = callback
@@ -15,7 +19,6 @@ class Route:
         self.path_regex = self.compile_regex()
 
     def extract_variables(self) -> list:
-        VARIABLES_REGEX = r"{([a-zA-Z]+)}"
         return re.findall(VARIABLES_REGEX, self.path)
 
     def compile_regex(self) -> re.Pattern:
@@ -33,4 +36,3 @@ class Route:
         if match:
             return match.groupdict()
         return {}
-

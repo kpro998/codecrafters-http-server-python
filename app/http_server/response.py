@@ -21,7 +21,7 @@ class HTTPResponse:
     version: str = "HTTP/1.1"
 
     def build_response(self) -> str:
-        response = f"{self.version} {str(self.status_code)}{CRLF}"
+        response = f"{self.version} {self.status_code}{CRLF}"
 
         if self.headers:
             for key, value in self.headers.items():

@@ -1,15 +1,15 @@
 from app.http_server.response import HTTPStatusCode
 
 
-class BaseHTTPException(Exception):
+class BaseHTTPError(Exception):
     pass
 
 
-class InvalidRequestException(BaseHTTPException):
+class InvalidRequestError(BaseHTTPError):
     pass
 
 
-class HTTPError(BaseHTTPException):
+class HTTPError(BaseHTTPError):
     def __init__(self, status_code: HTTPStatusCode, message: str) -> None:
         self.status_code = status_code
         self.message = message

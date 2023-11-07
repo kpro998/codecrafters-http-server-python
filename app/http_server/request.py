@@ -1,7 +1,7 @@
 from asyncio import StreamReader
 from dataclasses import dataclass
 
-from app.http_server.exceptions import InvalidRequestException
+from app.http_server.exceptions import InvalidRequestError
 from app.http_server.methods import HTTPMethod
 
 CRLF = "\r\n"
@@ -20,13 +20,13 @@ class HTTPRequest:
         request_line = await reader.readline()
         try:
             method, request_target, http_version = request_line.decode().replace(CRLF, "").split(" ", 3)
-        except (UnicodeDecodeError, ValueError):
-            raise InvalidRequestException("Invalid HTTP request line")
+        except (UnicodeDecodeError, ValueError) as e:
+            raise InvalidRequestError("Invalid HTTP request line") from e
 
         try:
             http_method = HTTPMethod(method.upper())
-        except ValueError:
-            raise InvalidRequestException("Invalid HTTP Method")
+        except ValueError as e:
+            raise InvalidRequestError("Invalid HTTP Method") from e
 
         headers = {}
         while not reader.at_eof():
@@ -36,8 +36,8 @@ class HTTPRequest:
 
             try:
                 key, value = data.decode().replace(CRLF, "").split(": ", 1)
-            except ValueError:
-                raise InvalidRequestException("Invalid HTTP header")
+            except ValueError as e:
+                raise InvalidRequestError("Invalid HTTP header") from e
 
             headers[key] = value
 
@@ -48,7 +48,7 @@ class HTTPRequest:
                     length = int(headers.get("Content-Length", 0))
                     if length:
                         body = await reader.read(length)
-                except ValueError:
-                    raise InvalidRequestException("Invalid Content-Length header")
+                except ValueError as e:
+                    raise InvalidRequestError("Invalid Content-Length header") from e
 
         return HTTPRequest(method=http_method, path=request_target, version=http_version, headers=headers, body=body)
