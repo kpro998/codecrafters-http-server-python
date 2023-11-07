@@ -1,22 +1,23 @@
-from asyncio import start_server, StreamReader, StreamWriter, Server
+import logging
+from asyncio import Server, StreamReader, StreamWriter, start_server
+from pathlib import Path
 from typing import Callable
+
+from app.http_server.exceptions import HTTPError, InvalidRequestException
 from app.http_server.methods import HTTPMethod
-from app.http_server.response import HTTPResponse, HTTPStatusCode
 from app.http_server.request import HTTPRequest
-from app.http_server.exceptions import InvalidRequestException, HTTPError
+from app.http_server.response import HTTPResponse, HTTPStatusCode
 from app.http_server.route import Route
 from app.http_server.types import HTTPCallback
-from pathlib import Path
-import logging
 
 
 class HTTPServer:
-    def __init__(self, host: str, port: str) -> None:
+    def __init__(self, host: str, port: int) -> None:
         self.host = host
         self.port = port
-        self.server: Server = None
+        self.server: Server | None = None
         self.routes: list[Route] = []
-        self.static_dir: Path = None
+        self.static_dir: Path | None = None
 
     def set_static_dir(self, static_dir: Path | str | None):
         if static_dir:
@@ -61,9 +62,7 @@ class HTTPServer:
                 case HTTPResponse():
                     response = ret
                 case str():
-                    response = HTTPResponse(
-                        HTTPStatusCode.OK, {"Content-Length": len(ret), "Content-Type": "text/plain"}, ret
-                    )
+                    response = HTTPResponse(HTTPStatusCode.OK, {"Content-Length": len(ret), "Content-Type": "text/plain"}, ret)
                 case _:
                     raise NotImplementedError(f"We do not support type '{type(ret)}' yet")
 

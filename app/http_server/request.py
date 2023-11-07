@@ -1,8 +1,8 @@
+from asyncio import StreamReader
 from dataclasses import dataclass
+
 from app.http_server.exceptions import InvalidRequestException
 from app.http_server.methods import HTTPMethod
-from asyncio import StreamReader
-
 
 CRLF = "\r\n"
 
@@ -13,7 +13,7 @@ class HTTPRequest:
     path: str
     version: str
     headers: dict[str, str]
-    body: bytes = None
+    body: bytes | None = None
 
     @staticmethod
     async def _from_reader(reader: StreamReader) -> "HTTPRequest":

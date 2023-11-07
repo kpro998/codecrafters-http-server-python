@@ -1,3 +1,3 @@
-from typing import Callable, Awaitable, Any
+from typing import Any, Awaitable, Callable
 
 HTTPCallback = Callable[..., Awaitable[Any]]

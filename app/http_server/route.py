@@ -1,6 +1,7 @@
-from app.http_server.types import HTTPCallback
-from app.http_server.methods import HTTPMethod
 import re
+
+from app.http_server.methods import HTTPMethod
+from app.http_server.types import HTTPCallback
 
 
 class Route:
@@ -20,15 +21,16 @@ class Route:
     def compile_regex(self) -> re.Pattern:
         regex = "^" + re.escape(self.path) + "$"
         for variable in self.variables:
-            regex = regex.replace("\{" + variable + "\}", f"(?P<{variable}>.+)")
+            regex = regex.replace(r"\{" + variable + r"\}", f"(?P<{variable}>.+)")
         return re.compile(regex)
 
     def path_matches_regex(self, path: str) -> bool:
         match = re.match(self.path_regex, path)
-        return match != None
+        return match is not None
 
     def parse_path(self, path: str) -> dict:
         match = re.match(self.path_regex, path)
         if match:
             return match.groupdict()
         return {}
+

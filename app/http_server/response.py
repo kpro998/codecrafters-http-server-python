@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Any
 
 CRLF = "\r\n"
 
@@ -15,8 +16,8 @@ class HTTPStatusCode(IntEnum):
 @dataclass
 class HTTPResponse:
     status_code: HTTPStatusCode
-    headers: dict[str, str] = None
-    body: str = None
+    headers: dict[str, Any] | None = None
+    body: str | None = None
     version: str = "HTTP/1.1"
 
     def build_response(self) -> str:
